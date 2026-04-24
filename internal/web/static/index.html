@@ -1,0 +1,1402 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sherlock — Bitcoin Chain Analysis</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --header-bg: transparent;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 3rem 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      border: none;
+      background: transparent;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      margin: 0;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1::before {
+      content: '₿';
+      font-size: 2.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 3.5rem;
+      height: 3.5rem;
+      background: #f7931a;
+      border-radius: 50%;
+      color: white;
+      box-shadow: 0 0 20px rgba(247, 147, 26, 0.4);
+    }
+
+    .header-subtitle {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      font-weight: 500;
+    }
+
+    main {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+
+    select,
+    input[type="checkbox"] {
+      background: #1e293b;
+      color: white;
+      border: 1px solid var(--border-color);
+      padding: 0.6rem;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h3 {
+      margin: 0 0 1rem 0;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+
+    .card .value {
+      font-size: 1.8rem;
+      font-weight: bold;
+    }
+
+    .chart-container {
+      margin-top: 1rem;
+      min-height: 200px;
+      /* Keep height stable during re-render */
+    }
+
+    .table-wrapper {
+      min-height: 400px;
+      max-height: 650px;
+      overflow-y: auto;
+      position: relative;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .bar-label {
+      width: 80px;
+      font-size: 0.8rem;
+    }
+
+    .bar-track {
+      flex-grow: 1;
+      background: #21262d;
+      height: 12px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      background: var(--primary);
+      height: 100%;
+    }
+
+    .bar-count {
+      width: 60px;
+      font-size: 0.8rem;
+      text-align: right;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: #1c2128;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .row-expandable {
+      cursor: pointer;
+    }
+
+    .row-expandable:hover {
+      filter: brightness(1.2);
+    }
+
+    .details-row {
+      display: none;
+      background: #0d1117;
+    }
+
+    .details-container {
+      padding: 1rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .manual-json-area {
+      width: 100%;
+      background: #0f172a;
+      color: #818cf8;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.85rem;
+      min-height: 154px;
+      resize: vertical;
+      margin-bottom: 1.5rem;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .debug-section {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px dashed var(--border-color);
+    }
+
+    .upload-status-msg {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status-error {
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.2);
+      color: #f85149;
+    }
+
+    .status-success {
+      background: rgba(63, 185, 80, 0.1);
+      border: 1px solid rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+
+    .banner {
+      background: #f85149;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      display: none;
+    }
+
+    /* Block Selection Cards */
+    .blocks-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .blocks-header h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .blocks-count {
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+
+    .block-selector {
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      padding: 0.5rem 0.5rem 1rem 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .block-selector::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .block-selector::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .block-selector::-webkit-scrollbar-thumb {
+      background-color: var(--border-color);
+      border-radius: 10px;
+    }
+
+    .block-card {
+      flex: 0 0 300px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      position: relative;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .block-card:hover {
+      border-color: #444;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+    }
+
+    .block-card.active {
+      background: rgba(88, 166, 255, 0.05);
+      border: 1px solid var(--primary);
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.1);
+    }
+
+    .block-card.active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary);
+      border-radius: 12px 0 0 12px;
+    }
+
+    .block-card .height {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .block-card .stats-line {
+      font-size: 0.85rem;
+      color: #8b949e;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .block-card .hash {
+      font-size: 0.7rem;
+      color: #6e7681;
+      font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+      word-break: break-all;
+      margin-top: 0.2rem;
+      opacity: 0.8;
+    }
+
+    .flagged-text {
+      color: #f85149;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    pre {
+      margin: 0;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    #uploadStatus,
+    .upload-status-msg {
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      min-height: 1.2rem;
+    }
+
+    .upload-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+
+    .upload-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: white;
+    }
+
+    .or-divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 1.5rem 0;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .or-divider::before,
+    .or-divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .or-divider:not(:empty)::before {
+      margin-right: 1rem;
+    }
+
+    .or-divider:not(:empty)::after {
+      margin-left: 1rem;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .upload-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .upload-field label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+    }
+
+    /* Minimal custom file input */
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+      font-size: 100px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .btn-file {
+      background: rgba(22, 27, 34, 0.5);
+      border: 1px solid var(--border-color);
+      color: var(--text-dim);
+      padding: 0.75rem 0.4rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      min-height: 64px;
+      text-align: center;
+    }
+
+    .btn-file:hover {
+      background: rgba(48, 54, 61, 0.5);
+      border-color: #8b949e;
+      color: var(--text-main);
+    }
+
+    .btn-file.has-file {
+      background: rgba(35, 134, 54, 0.15);
+      border-color: #3fb950;
+      color: #3fb950;
+    }
+
+    .btn-file.has-file .info-label {
+      color: #3fb950 !important;
+      opacity: 0.9;
+    }
+
+    .btn-file::after {
+      display: none;
+    }
+
+    .upload-actions {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+      filter: brightness(1.1);
+    }
+
+    .btn-primary:disabled {
+      background: #1b4b24;
+      color: #8b949e;
+      cursor: not-allowed;
+    }
+
+    .block-info-layout {
+      margin-top: 1.5rem;
+    }
+
+    .info-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 1.25rem;
+      border-radius: 8px;
+    }
+
+    .info-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    .info-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .hash-dedicated-box {
+      background: #0d1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .hash-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .hash-value-display {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--primary);
+      word-break: break-all;
+      background: rgba(88, 166, 255, 0.03);
+      padding: 1rem;
+      border-radius: 6px;
+      border: 1px solid rgba(88, 166, 255, 0.1);
+      line-height: 1.6;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: 0.05em;
+    }
+
+    .copy-btn:hover {
+      background: rgba(88, 166, 255, 0.1);
+      border-color: var(--primary);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(88, 166, 255, 0.1);
+    }
+
+    .copy-status {
+      position: absolute;
+      right: calc(100% + 12px);
+      white-space: nowrap;
+      font-size: 0.75rem;
+      color: var(--success);
+      display: none;
+      font-weight: 600;
+      background: rgba(63, 185, 80, 0.1);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(63, 185, 80, 0.2);
+    }
+
+    .search-box {
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="errorBanner" class="banner">Health check failed. Check server status.</div>
+  <header>
+    <h1>Sherlock</h1>
+    <div class="header-subtitle">A Fast, Deep Bitcoin Chain Analysis Engine</div>
+  </header>
+  <main>
+    <div class="container">
+      <div class="upload-section">
+        <div class="upload-title" style="color: var(--text-dim); font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;">INGEST DATA FILES</div>
+        <div class="upload-grid">
+          <div class="upload-field">
+            <div class="file-input-wrapper">
+              <div id="blkLabel" class="btn-file">
+                <span class="info-label" style="font-size:0.6rem; margin-bottom:0.4rem">Block Data</span>
+                <span class="file-name">...</span>
+              </div>
+              <input type="file" id="blkFile" accept=".dat" onchange="updateLabel('blkFile', 'blkLabel', 'Block Data')" />
+            </div>
+          </div>
+          <div class="upload-field">
+            <div class="file-input-wrapper">
+              <div id="revLabel" class="btn-file">
+                <span class="info-label" style="font-size:0.6rem; margin-bottom:0.4rem">Undo Data</span>
+                <span class="file-name">...</span>
+              </div>
+              <input type="file" id="revFile" accept=".dat" onchange="updateLabel('revFile', 'revLabel', 'Undo Data')" />
+            </div>
+          </div>
+          <div class="upload-field">
+            <div class="file-input-wrapper">
+              <div id="xorLabel" class="btn-file">
+                <span class="info-label" style="font-size:0.6rem; margin-bottom:0.4rem">XOR Key</span>
+                <span class="file-name">...</span>
+              </div>
+              <input type="file" id="xorFile" accept=".dat" onchange="updateLabel('xorFile', 'xorLabel', 'XOR Key')" />
+            </div>
+          </div>
+        </div>
+        <div class="upload-actions" style="margin-top: 2rem;">
+          <button id="analyzeBtn" class="btn-primary" onclick="handleUpload()">Launch Analysis</button>
+          <div id="uploadStatus" class="upload-status-msg"></div>
+        </div>
+      </div>
+
+      <div class="upload-section debug-section">
+        <div class="upload-title" style="color: var(--warning)">JSON Import</div>
+        <div class="upload-subtitle" style="font-size:0.9rem; color: var(--text-dim); margin-bottom:1.5rem;">
+          Paste an analysis report or error object to test the UI.
+        </div>
+        <textarea id="manualJson" class="manual-json-area"
+          placeholder='{"ok": true, "blocks": [...]} or {"ok": false, ...}'></textarea>
+        <div class="upload-actions" style="border: none; padding: 0;">
+          <button class="btn-primary" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);" onclick="handleManualImport()">Process JSON</button>
+          <div id="manualStatus" class="upload-status-msg"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label>Block File:</label>
+        <select id="fileSelect">
+          <option value="">Select a file...</option>
+        </select>
+
+        <label>Heuristic Filter:</label>
+        <select id="heuristicFilter">
+          <option value="all">All Heuristics</option>
+          <option value="cioh">CIOH</option>
+          <option value="change_detection">Change Detection</option>
+          <option value="address_reuse">Address Reuse</option>
+          <option value="coinjoin">CoinJoin Detection</option>
+          <option value="consolidation">Consolidation</option>
+          <option value="self_transfer">Self Transfer</option>
+          <option value="peeling_chain">Peeling Chain</option>
+          <option value="op_return">OP_RETURN</option>
+          <option value="round_number_payment">Round Number Payment</option>
+        </select>
+
+        <label style="display:flex;align-items:center;gap:0.4rem;">
+          <input type="checkbox" id="flaggedOnly" /> Show Only Flagged
+        </label>
+      </div>
+
+      <div id="content" style="display:none">
+        <div class="blocks-header">
+          <h2>Select a Block</h2>
+          <div id="blocksCount" class="blocks-count">0 blocks</div>
+        </div>
+        <div id="blockSelector" class="block-selector"></div>
+
+        <div id="selectedBlockDetails" class="block-info-layout">
+        </div>
+
+        <div class="stats-grid" style="margin-top: 2rem;">
+          <div class="card">
+            <h3>Total Transactions</h3>
+            <div id="blockTotal" class="value">0</div>
+          </div>
+          <div class="card">
+            <h3>Matching Filter</h3>
+            <div id="matchingFiltered" class="value">0</div>
+          </div>
+          <div class="card">
+            <h3>Flagged Heuristics</h3>
+            <div id="uniqueHeuristics" class="value">0</div>
+          </div>
+        </div>
+
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+          <div class="card">
+            <h3>Fee Rate Stats (sat/vB)</h3>
+            <div class="stats-grid" id="feeStats"></div>
+          </div>
+
+          <div class="card">
+            <h3>Script Type Distribution</h3>
+            <div id="scriptChart" class="chart-container"></div>
+          </div>
+
+          <div class="card">
+            <h3>Flagged Heuristic Distribution</h3>
+            <div class="chart-container" style="max-height: 300px; display: flex; justify-content: center;">
+              <canvas id="heuristicPieChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Transaction Classification</h3>
+            <div class="chart-container" style="max-height: 300px; display: flex; justify-content: center;">
+              <canvas id="txClassificationChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="block-header-title">
+          <h2>Transactions</h2>
+        </div>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="txSearch" class="search-input"
+            placeholder="Search by TXID, Classification, or Heuristic..." />
+        </div>
+        <div class="table-wrapper">
+          <table id="txTable">
+            <thead>
+              <tr>
+                <th>TXID</th>
+                <th>Classification</th>
+                <th>Flagged Heuristics</th>
+                <th>Fee Rate</th>
+              </tr>
+            </thead>
+            <tbody id="txBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentData = null;
+    let currentBlockIndex = 0;
+    let heuristicChart = null;
+    let txClassChart = null;
+
+    const classificationColors = {
+      coinjoin: "#6e40c9",
+      consolidation: "#d97706",
+      self_transfer: "#2563eb",
+      batch_payment: "#e67e22",
+      simple_payment: "#16a34a",
+      mining_pool: "#cf222e",
+      exchange: "#d29922",
+      unknown: "#6b7280",
+    };
+
+    const heuristicColors = {
+      cioh: "#58a6ff",
+      change_detection: "#2ea043",
+      address_reuse: "#f85149",
+      coinjoin: "#bc8cff",
+      consolidation: "#d29922",
+      self_transfer: "#1f6feb",
+      peeling_chain: "#db61a2",
+      op_return: "#8b949e",
+      round_number_payment: "#79c0ff",
+    };
+
+    function updateLabel(inputId, labelId, defaultLabel) {
+      const input = document.getElementById(inputId);
+      const container = document.getElementById(labelId);
+      const fileNameSpan = container.querySelector('.file-name');
+
+      if (input.files[0]) {
+        fileNameSpan.textContent = input.files[0].name;
+        fileNameSpan.style.color = "var(--text-main)";
+        container.classList.add('has-file');
+      } else {
+        fileNameSpan.textContent = "...";
+        fileNameSpan.style.color = "var(--text-dim)";
+        container.classList.remove('has-file');
+      }
+    }
+
+    async function init() {
+      try {
+        const health = await fetch("/api/health").then((r) => r.json());
+        if (!health.ok) throw new Error();
+      } catch (e) {
+        document.getElementById("errorBanner").style.display = "block";
+        document.getElementById("healthStatus").innerText = "API Offline";
+        document.getElementById("healthStatus").style.color = "#f85149";
+      }
+
+      const files = await fetch("/api/files").then((r) => r.json());
+      const select = document.getElementById("fileSelect");
+      (files.files || []).forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.textContent = f;
+        select.appendChild(opt);
+      });
+
+      select.onchange = async (e) => {
+        if (!e.target.value) return;
+        const data = await fetch(`/api/analysis/${e.target.value}`).then((r) => r.json());
+        currentData = data;
+        currentBlockIndex = 0;
+        render();
+      };
+
+      document.getElementById("heuristicFilter").onchange = () => render(false);
+      document.getElementById("flaggedOnly").onchange = () => render(false);
+
+      let searchTimeout;
+      document.getElementById("txSearch").oninput = () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => render(false), 150); 
+      };
+    }
+
+    function copyToClipboard(text, btn) {
+      navigator.clipboard.writeText(text).then(() => {
+        const status = btn.previousElementSibling;
+        status.style.display = 'block';
+        const originalText = btn.textContent;
+        btn.textContent = 'DONE';
+        btn.style.borderColor = '#3fb950';
+        btn.style.color = '#3fb950';
+
+        setTimeout(() => {
+          status.style.display = 'none';
+          btn.textContent = originalText;
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        }, 2000);
+      });
+    }
+
+    async function handleUpload() {
+      const blk = document.getElementById("blkFile").files[0];
+      const rev = document.getElementById("revFile").files[0];
+      const xor = document.getElementById("xorFile").files[0];
+      const btn = document.getElementById("analyzeBtn");
+      const status = document.getElementById("uploadStatus");
+
+      if (!blk || !xor) {
+        status.style.display = "block";
+        status.innerHTML = '<span style="color:#f85149">Error: BLK and XOR files are required.</span>';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("blk", blk);
+      if (rev) formData.append("rev", rev);
+      formData.append("xor", xor);
+
+      btn.disabled = true;
+      btn.textContent = "Analyzing...";
+      status.style.display = "block";
+      status.innerHTML = '<span style="color:#58a6ff">Uploading and analyzing... please wait.</span>';
+
+      document.getElementById("content").style.display = "none";
+      currentData = null;
+
+      try {
+        const resp = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData
+        });
+        const result = await resp.json();
+        if (resp.ok && result.ok) {
+          status.innerHTML = '<span style="color:#3fb950">Success! Analysis complete. Refreshing list...</span>';
+          const files = await fetch("/api/files").then((r) => r.json());
+          const select = document.getElementById("fileSelect");
+          select.innerHTML = '<option value="">Select a file...</option>';
+          (files.files || []).forEach((f) => {
+            const opt = document.createElement("option");
+            opt.value = f;
+            opt.textContent = f;
+            select.appendChild(opt);
+          });
+          const stem = blk.name.replace(".gz", "").replace(".dat", "");
+          select.value = stem;
+          select.dispatchEvent(new Event('change'));
+        } else {
+          status.innerHTML = `<div style="color:#f85149; margin-top:10px;"><strong>Error Details (JSON):</strong><pre style="background:#000;padding:10px;border-radius:4px;overflow:auto;font-size:0.8rem;border:1px solid #f85149;">${JSON.stringify(result, null, 2)}</pre></div>`;
+        }
+      } catch (e) {
+        const errJson = { ok: false, error: { code: "CONNECTION_FAILED", message: e.message } };
+        status.innerHTML = `<div style="color:#f85149; margin-top:10px;"><strong>Connection Error (JSON):</strong><pre style="background:#000;padding:10px;border-radius:4px;overflow:auto;font-size:0.8rem;border:1px solid #f85149;">${JSON.stringify(errJson, null, 2)}</pre></div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Launch Analysis";
+      }
+    }
+
+    async function handleManualImport() {
+      const area = document.getElementById("manualJson");
+      const status = document.getElementById("manualStatus");
+      const val = area.value.trim();
+
+      status.style.display = "none";
+      status.className = "upload-status-msg";
+
+      if (!val) return;
+
+      try {
+        const data = JSON.parse(val);
+        const requiredFields = ["ok", "mode", "file", "block_count", "analysis_summary", "blocks"];
+        let missingField = null;
+
+        for (let f of requiredFields) {
+          if (!(f in data)) {
+            missingField = f;
+            break;
+          }
+        }
+
+        if (!missingField && data.blocks && data.blocks.length > 0) {
+          const blockFields = ["block_hash", "block_height", "tx_count"];
+          for (let f of blockFields) {
+            if (!(f in data.blocks[0])) {
+              missingField = `blocks[0].${f}`;
+              break;
+            }
+          }
+        }
+
+        if (missingField) {
+          const errJson = {
+            ok: false,
+            error: {
+              code: "SCHEMA_ERROR",
+              message: `Missing required field: ${missingField}`
+            }
+          };
+          status.style.display = "block";
+          status.classList.add("status-error");
+          status.innerHTML = `<strong>Schema Validation Failed:</strong><pre style="background:#000;padding:10px;margin-top:10px;border-radius:4px;overflow:auto;font-size:0.8rem;border:1px solid #f85149;">${JSON.stringify(errJson, null, 2)}</pre>`;
+          document.getElementById("content").style.display = "none";
+          currentData = null;
+          return;
+        }
+
+        if (data.ok && data.blocks) {
+          currentData = data;
+          currentBlockIndex = 0;
+          render(true);
+          status.style.display = "block";
+          status.classList.add("status-success");
+          status.innerHTML = "<strong>Success:</strong> JSON imported successfully.";
+        } else if (data.ok === false) {
+          status.style.display = "block";
+          status.classList.add("status-error");
+          status.innerHTML = `<strong>Error JSON Detected:</strong><pre style="background:#000;padding:10px;margin-top:10px;border-radius:4px;overflow:auto;font-size:0.8rem;border:1px solid #f85149;">${JSON.stringify(data, null, 2)}</pre>`;
+          document.getElementById("content").style.display = "none";
+          currentData = null;
+        }
+      } catch (e) {
+        const parseError = {
+          ok: false,
+          error: {
+            code: "PARSE_ERROR",
+            message: "Invalid JSON format: " + e.message
+          }
+        };
+        status.style.display = "block";
+        status.classList.add("status-error");
+        status.innerHTML = `<strong>Manual Import Failed:</strong><pre style="background:#000;padding:10px;margin-top:10px;border-radius:4px;overflow:auto;font-size:0.8rem;border:1px solid #f85149;">${JSON.stringify(parseError, null, 2)}</pre>`;
+      }
+    }
+
+    function render(refreshBlockInfo = true) {
+      if (!currentData) return;
+      document.getElementById("content").style.display = "block";
+
+      if (refreshBlockInfo) {
+        const selector = document.getElementById("blockSelector");
+        selector.innerHTML = "";
+
+        document.getElementById("blocksCount").textContent = currentData.blocks.length + " blocks";
+
+        currentData.blocks.forEach((b, i) => {
+          const card = document.createElement("div");
+          card.className = "block-card" + (i === currentBlockIndex ? " active" : "");
+
+          const flaggedCount = b.analysis_summary?.flagged_transactions || 0;
+
+          card.innerHTML = `
+              <div class="height">Block #${b.block_height.toLocaleString()}</div>
+              <div class="stats-line">
+                <span>TX ${b.tx_count.toLocaleString()}</span>
+                <span> | </span>
+                <span class="flagged-text">
+                  <span style="font-size:1rem">🚩</span> ${flaggedCount.toLocaleString()}
+                </span>
+              </div>
+              <div class="hash">${b.block_hash.substring(0, 16)}...</div>
+            `;
+
+          card.onclick = () => { currentBlockIndex = i; render(true); };
+          selector.appendChild(card);
+
+          if (i === currentBlockIndex) {
+            setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }), 100);
+          }
+        });
+      }
+
+      const block = currentData.blocks[currentBlockIndex];
+
+      if (refreshBlockInfo) {
+        const detailsEl = document.getElementById("selectedBlockDetails");
+        const date = new Date(block.block_timestamp * 1000).toLocaleString();
+
+        detailsEl.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="info-card">
+                <div class="info-label">Block Height</div>
+                <div class="info-value" style="color: var(--primary)">#${block.block_height.toLocaleString()}</div>
+              </div>
+              <div class="info-card">
+                <div class="info-label">Transactions</div>
+                <div class="info-value">${block.tx_count.toLocaleString()}</div>
+              </div>
+              <div class="info-card">
+                <div class="info-label">Timestamp</div>
+                <div class="info-value" style="font-size: 0.9rem">${date}</div>
+              </div>
+            </div>
+            
+            <div class="hash-dedicated-box">
+              <div class="hash-header">
+                <div class="info-label" style="margin-bottom: 0">Block Hash</div>
+                <div style="position: relative">
+                  <span class="copy-status" id="copySuccess">COPIED</span>
+                  <button class="copy-btn" onclick="copyToClipboard('${block.block_hash}', this)">
+                    COPY HASH
+                  </button>
+                </div>
+              </div>
+              <div class="hash-value-display">${block.block_hash}</div>
+            </div>
+          `;
+      }
+
+      const filterHeuristic = document.getElementById("heuristicFilter").value;
+      const flaggedOnly = document.getElementById("flaggedOnly").checked;
+      const searchQuery = document.getElementById("txSearch").value.toLowerCase();
+      const allTxs = block.transactions || [];
+      const filteredTxs = allTxs.filter((tx) => {
+        const anyFlagged = Object.values(tx.heuristics).some((v) => v.detected);
+        if (filterHeuristic !== "all") {
+          const h = tx.heuristics[filterHeuristic];
+          if (!h || !h.detected) return false;
+        }
+        if (flaggedOnly && !anyFlagged) return false;
+
+        if (searchQuery) {
+          const txid = tx.txid.toLowerCase();
+          const classification = (tx.classification || "").toLowerCase();
+          const heuristics = Object.keys(tx.heuristics)
+            .filter(k => tx.heuristics[k].detected)
+            .join(" ")
+            .toLowerCase();
+
+          if (!txid.includes(searchQuery) &&
+            !classification.includes(searchQuery) &&
+            !heuristics.includes(searchQuery)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      const filteredFiredSet = new Set();
+      const filteredFeeRates = [];
+      let totalFeeRateSum = 0;
+
+      filteredTxs.forEach((tx) => {
+        Object.entries(tx.heuristics).forEach(([k, v]) => {
+          if (v.detected) { filteredFiredSet.add(k); }
+        });
+
+        if (tx.fee_rate > 0) {
+          filteredFeeRates.push(tx.fee_rate);
+          totalFeeRateSum += tx.fee_rate;
+        }
+      });
+
+      document.getElementById("blockTotal").textContent = allTxs.length;
+      document.getElementById("matchingFiltered").textContent = filteredTxs.length;
+      document.getElementById("uniqueHeuristics").textContent = filteredFiredSet.size;
+
+      let minFee = 0, maxFee = 0, medianFee = 0, meanFee = 0;
+      if (filteredFeeRates.length > 0) {
+        filteredFeeRates.sort((a, b) => a - b);
+        minFee = filteredFeeRates[0];
+        maxFee = filteredFeeRates[filteredFeeRates.length - 1];
+        meanFee = (totalFeeRateSum / filteredFeeRates.length).toFixed(1);
+
+        const mid = Math.floor(filteredFeeRates.length / 2);
+        medianFee = filteredFeeRates.length % 2 !== 0
+          ? filteredFeeRates[mid]
+          : ((filteredFeeRates[mid - 1] + filteredFeeRates[mid]) / 2).toFixed(2);
+      }
+
+      document.getElementById("feeStats").innerHTML =
+        "<div>Min: <strong>" + minFee + "</strong></div>" +
+        "<div>Median: <strong>" + medianFee + "</strong></div>" +
+        "<div>Mean: <strong>" + meanFee + "</strong></div>" +
+        "<div>Max: <strong>" + maxFee + "</strong></div>";
+
+      const scriptDist = {};
+      filteredTxs.forEach((tx) => {
+        if (tx.script_types) {
+          tx.script_types.forEach((st) => {
+            scriptDist[st] = (scriptDist[st] || 0) + 1;
+          });
+        }
+      });
+
+      const chartEl = document.getElementById("scriptChart");
+      chartEl.innerHTML = "";
+      const maxVal = Math.max(...Object.values(scriptDist), 1);
+      Object.entries(scriptDist).forEach(([type, count]) => {
+        if (count === 0) return;
+        const pct = (count / maxVal) * 100;
+        chartEl.innerHTML +=
+          '<div class="bar-row">' +
+          '<div class="bar-label">' + type + '</div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="bar-count">' + count + '</div>' +
+          '</div>';
+      });
+
+      const hCounts = {};
+      filteredTxs.forEach(tx => {
+        Object.entries(tx.heuristics).forEach(([k, v]) => {
+          if (v.detected) {
+            hCounts[k] = (hCounts[k] || 0) + 1;
+          }
+        });
+      });
+
+      const hKeys = Object.keys(hCounts);
+      const hLabels = hKeys.map(h => h.toUpperCase());
+      const hData = Object.values(hCounts);
+      const hChartColors = hKeys.map(k => heuristicColors[k] || "#8b949e");
+
+      if (heuristicChart) {
+        heuristicChart.destroy();
+      }
+
+      const ctx = document.getElementById('heuristicPieChart').getContext('2d');
+      if (hData.length > 0) {
+        heuristicChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: hLabels,
+            datasets: [{
+              data: hData,
+              backgroundColor: hChartColors,
+              borderWidth: 1,
+              borderColor: '#161b22'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { color: '#c9d1d9', font: { size: 10 } }
+              }
+            }
+          }
+        });
+        document.getElementById('heuristicPieChart').style.display = 'block';
+      } else {
+        document.getElementById('heuristicPieChart').style.display = 'none';
+      }
+
+      const classCounts = {};
+      filteredTxs.forEach(tx => {
+        let classification = tx.classification || 'unknown';
+        classCounts[classification] = (classCounts[classification] || 0) + 1;
+      });
+
+      const cKeys = Object.keys(classCounts);
+      const classLabels = cKeys.map(c => c.toUpperCase());
+      const classData = Object.values(classCounts);
+      const cChartColors = cKeys.map(k => classificationColors[k] || "#6b7280");
+
+      if (txClassChart) {
+        txClassChart.destroy();
+      }
+
+      const txCtx = document.getElementById('txClassificationChart').getContext('2d');
+      if (classData.length > 0) {
+        txClassChart = new Chart(txCtx, {
+          type: 'pie',
+          data: {
+            labels: classLabels,
+            datasets: [{
+              data: classData,
+              backgroundColor: cChartColors,
+              borderWidth: 1,
+              borderColor: '#161b22'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { color: '#c9d1d9', font: { size: 10 } }
+              }
+            }
+          }
+        });
+        document.getElementById('txClassificationChart').style.display = 'block';
+      } else {
+        document.getElementById('txClassificationChart').style.display = 'none';
+      }
+
+      const tbody = document.getElementById("txBody");
+      tbody.innerHTML = "";
+
+      if (filteredTxs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:#8b949e;">No transactions match the current filter.</td></tr>';
+        return;
+      }
+
+
+      filteredTxs.forEach((tx, i) => {
+        const firedH = Object.entries(tx.heuristics)
+          .filter(([k, v]) => v.detected)
+          .map(([k]) => k);
+        const classification = tx.classification || "unknown";
+        const bgColor = classificationColors[classification] || classificationColors.unknown;
+
+        const tr = document.createElement("tr");
+        tr.className = "row-expandable";
+        tr.style.borderLeft = "4px solid " + bgColor;
+        tr.innerHTML =
+          "<td><code style='font-family:\"Roboto Mono\", monospace; font-size: 0.85rem; color: #79c0ff;'>" + tx.txid.substring(0, 16) + "...</code></td>" +
+          '<td><span class="badge" style="background: ' + bgColor + '22; color: ' + bgColor + '; border: 1px solid ' + bgColor + '44">' + classification + "</span></td>" +
+          "<td style='font-size: 0.85rem; color: var(--text-dim)'>" + (firedH.join(", ") || "—") + "</td>" +
+          "<td style='font-family:\"Roboto Mono\", monospace; font-size: 0.85rem; font-weight: 500;'>" + (tx.fee_rate ? tx.fee_rate.toFixed(1) : "—") + "</td>";
+        tr.onclick = () => {
+          const dr = document.getElementById("details-" + i);
+          dr.style.display = dr.style.display === "table-row" ? "none" : "table-row";
+        };
+        tbody.appendChild(tr);
+
+        const dr = document.createElement("tr");
+        dr.id = "details-" + i;
+        dr.className = "details-row";
+        const rows = Object.entries(tx.heuristics).map(([k, v]) =>
+          "<tr><td>" + k + "</td><td>" + (v.detected ? "✅" : "❌") + "</td><td><pre>" + JSON.stringify(v, null, 2) + "</pre></td></tr>"
+        ).join("");
+        dr.innerHTML =
+          '<td colspan="4"><div class="details-container">' +
+          "<h4>Full Heuristics Analysis</h4>" +
+          "<table><thead><tr><th>Heuristic</th><th>Detected</th><th>Extra Data</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody></table>" +
+          "</div></td>";
+        tbody.appendChild(dr);
+      });
+    }
+
+    init();
+  </script>
+</body>
+
+</html>

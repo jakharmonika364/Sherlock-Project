@@ -1,5 +1,4 @@
 /sherlock
-out/
 .DS_Store
 *.zip
 fixtures/blk*.dat

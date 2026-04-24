@@ -1,0 +1,5 @@
+/sherlock
+.DS_Store
+*.zip
+fixtures/blk*.dat
+fixtures/rev*.dat

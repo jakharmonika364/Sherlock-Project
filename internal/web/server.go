@@ -161,7 +161,7 @@ func StartServer(port int) {
 		w.Write(data)
 	})
 
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	fmt.Printf("http://%s\n", addr)
 
 	srv := &http.Server{Addr: addr}
